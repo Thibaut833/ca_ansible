@@ -1,0 +1,33 @@
+---
+# tasks file for ca_ansible
+
+- name: Je crée le folder pour ca_ansible
+  ansible.builtin.file:
+    path: /data/ca_ansible
+    mode: "700"
+    state: directory
+
+- name: Je crée une clé privée
+  community.crypto.openssl_privatekey:
+    path: /data/ca_ansible/ca.key
+    mode: "600"
+
+- name: Je crée une certificate signing request (CSR) pour la CA certificate
+  community.crypto.openssl_csr_pipe:
+    privatekey_path: /data/ca_ansible/ca.key
+    common_name: Ansible CA Blasi
+    use_common_name_for_san: false  # since we do not specify SANs, don't use CN as a SAN
+    basic_constraints:
+      - 'CA:TRUE'
+    basic_constraints_critical: true
+    key_usage:
+      - keyCertSign
+    key_usage_critical: true
+  register: ca_csr
+
+- name: Je crée un certificat self-signed CA certificate à partir du CSR
+  community.crypto.x509_certificate:
+    path: /data/ca_ansible/ca-cert.pem
+    csr_content: "{{ ca_csr.csr }}"
+    privatekey_path: /data/ca_ansible/ca.key
+    provider: selfsigned
